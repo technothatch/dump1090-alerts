@@ -1,0 +1,84 @@
+# dump1090-alerts — example configuration.
+#
+# Copy this file to alerts.toml (or pass --config PATH) and edit to taste.
+# Every condition inside one [rules.match] table must hold for the rule to
+# fire (conditions are ANDed); use several [[rules]] for OR logic.
+# All sinks are pure stdlib — no third-party packages are needed at runtime.
+
+[engine]
+cooldown = 60    # default seconds before the same rule+aircraft may fire again
+baseline = true  # first poll only records state; "new" rules wait for the next poll
+
+[[rules]]
+name = "emergency"
+description = "Emergency squawk (7500/7600/7700) or any non-none emergency flag"
+
+[rules.match]
+squawk = ["7500", "7600", "7700"]
+emergency = true
+
+[[rules.sinks]]
+type = "ntfy"
+url = "https://ntfy.sh/replace-with-your-secret-topic"
+priority = 5
+tags = ["rotating_light", "airplane"]
+
+[[rules]]
+name = "overhead"
+description = "Anything above FL300 within 25 nm of the receiver"
+
+[rules.match]
+alt_above = 30000
+
+[rules.match.near]
+lat = 51.4700
+lon = -0.4543
+radius_nm = 25.0
+
+[[rules.sinks]]
+type = "webhook"
+url = "https://example.com/hooks/adsb"
+
+[rules.sinks.headers]
+X-Token = "change-me"
+
+[[rules]]
+name = "strong-signal"
+description = "Very strong signal — usually an aircraft close overhead"
+
+[rules.match]
+rssi_min = -6.0
+
+[[rules.sinks]]
+type = "discord"
+url = "https://discord.com/api/webhooks/000000000000000000/replace-me"
+username = "dump1090-alerts"
+
+[[rules]]
+name = "takeoff"
+description = "An aircraft left the ground"
+
+[rules.match]
+takeoff = true
+
+[[rules.sinks]]
+type = "shell"
+command = ["/usr/local/bin/notify-takeoff.sh"]
+
+[[rules]]
+name = "new-aircraft"
+description = "First time this ICAO hex is seen (one hour cooldown)"
+
+cooldown = 3600
+
+[rules.match]
+new = true
+
+[[rules.sinks]]
+type = "email"
+host = "localhost"
+port = 587
+starttls = true
+from = "adsb@example.com"
+to = ["ops@example.com"]
+subject = "dump1090 new aircraft"
